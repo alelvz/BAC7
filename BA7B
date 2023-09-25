@@ -10,7 +10,6 @@ input_data = """
 22 13 13 0
 """
 
-# Split the input data into rows
 rows = input_data.strip().split('\n')
 dist_matrix = []
 
