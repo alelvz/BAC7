@@ -1,54 +1,133 @@
 import numpy as np
 
-def UPGMA(D, n):
-    #inicializzar:
-    name = [i for i in range(0, n)]
-    Tree = {i: [i,i,0,0,1] for i in range(n)} ## Inicializa el arbol [nombre nodo,acumulativo,edad, distnacia, #odos internos]
-    formato = []  # Creamos una lista vacía para almacenar los valores
+# Define a class for the Neighbor-Joining algorithm
+class NeighborJoining:
+    # Constructor that takes the number of taxa (n) and the distance matrix (distMatrix)
+    def _init_(self, n, distMatrix):
+        # Call the runNeighborJoining method to construct the phylogenetic tree
+        adjacencies = self.runNeighborJoining(distMatrix, n)
+        # Print the resulting tree
+        self.printTree(adjacencies)
 
-    while len(name) > 1 :
-        minimo=np.where(D == np.min(D[np.nonzero(D)])) ## minimo[0] es un vector con los indices de la matriz con menor distacia
-        ###### Bucscar el minimo y generar el nodo de TREE -------------------------------
-        Tree[n] = [[],[],[],[],[]] 
-        a = name[minimo[0][0]]
-        b = name[minimo[0][1]]
-        Tree[n][0] = [a,b] ##########  Nombre del nodo [.,.]
-        Tree[n][1] = [Tree[a][1], Tree[b][1]] # Acumulativo [[.,.],[.,.]]
-        Tree[n][2] = D[minimo][0]/2 # AGE
-        lenght1 = Tree[n][2] - Tree[a][2] # lenght (AGE(C)-AGE(nodo_previo)
-        lenght2 = Tree[n][2] - Tree[b][2] # lenght (AGE(C)-AGE(nodo_previo)
-        Tree[n][3] = [lenght1, lenght2]
-        Tree[n][4] = Tree[a][4] + Tree[b][4]
-        # Dentro de tu bucle o proceso donde generas los valores, los agregas a la lista ---------------------------------------
-        formato.append(str(n) + "->" + str(a) + ":" + str(f"{lenght1:.3f}"))
-        formato.append(str(n) + "->" + str(b) + ":" + str(f"{lenght2:.3f}"))
-        formato.append(str(a) + "->" + str(n) + ":" + str(f"{lenght1:.3f}"))
-        formato.append(str(b) + "->" + str(n) + ":" + str(f"{lenght2:.3f}"))
-        #Promedio de la fila a eliminarse --------------------------------------------------------------------------------------
-        fila = [(D[minimo[0]][0] [i] * Tree[a][4] + D[minimo[0]][1][i] * Tree[b][4]) / (Tree[a][4] + Tree[b][4]) for i in range(len(D[minimo[0]][0] ))] # V1 : D[minimo[0]][0] , V2: D[minimo[0]][1]
-        if len(name) == 2:  # cuando estes en 2x2, no sacar promedio pondrerado sino solo pormedio 
-            fila = np.mean(D[minimo[0]], axis=0) 
-        fila = np.delete(fila, minimo[0])
-        # Eliminar la fila y columna del minimo en la matrix de distancia, y eliminar el nodo de NAME
-        D = np.delete(D, minimo[0], axis=0)
-        D = np.delete(D, minimo[0], axis=1)
-        name = np.delete(name, minimo[0])
-        # Agregar la fila y columna del promedio; y agregar el nodo a NAME
-        D = np.vstack((D, fila))
-        fila = np.append(fila, 0)
-        D=np.column_stack((D, fila))
-        name = np.append(name, n)
-        n = n+1 # actulizaar para que se genere el siguiente nodo en el arbol
-    # Ordenar la lista usando la función personalizada -- ayuda de internet ------------------------------------------------------
-    formato.sort(key=lambda x: (int(x.split('->')[0]), float(x.split(':')[1])))
-    return D,Tree, name, formato
+    # Method to read input from the command line
+    def readFromCommandLine(self):
+        # Prompt the user for the number of taxa (n)
+        n = int(input("Enter the number of taxa: "))
+        # Initialize an empty list to store the distance matrix
+        distMatrix = []
+        # Loop to read the distance matrix row by row
+        for _ in range(n):
+            # Prompt the user for a row of distances as space-separated values
+            row = list(map(int, input().split()))
+            # Append the row to the distance matrix
+            distMatrix.append(row)
+        # Return the number of taxa and the distance matrix
+        return n, distMatrix
 
-##################### DATA --- ## Llammar al txt -> datos.txt
-with open("datos.txt", "r") as archivo:
-    lineas = archivo.read().splitlines()[1:]
+    # Method to save the result to a file
+    def saveResultToFile(self, adjacencies):
+        # Open a file named 'result.txt' for writing
+        with open('result.txt', 'w') as file:
+            # Loop through the adjacency list and write each edge to the file
+            for i, nodes in enumerate(adjacencies):
+                for neighbor, weight in nodes:
+                    # Write the edge information to the file
+                    file.write(f"{i}->{neighbor}:{weight:.3f}\n")
 
-D = np.array([list(map(float, linea.split())) for linea in lineas])
-n = 21
-D, Tree, name, formato = UPGMA(D, n)
-for i in formato:
-    print(i)
+    # Method to print the distance matrix to the console
+    def printDistanceMatrix(self, distMatrix):
+        # Loop through the rows of the distance matrix and print each row
+        for row in distMatrix:
+            # Join the elements of the row into a space-separated string and print it
+            print(' '.join(map(str, row)))
+
+    # Method to print the phylogenetic tree to the console
+    def printTree(self, adjacencies):
+        # Loop through the nodes in the adjacency list and print each edge
+        for i, nodes in enumerate(adjacencies):
+            for neighbor, weight in nodes:
+                # Print the edge information
+                print(f"{i}->{neighbor}:{weight:.3f}")
+
+    # Method to run the Neighbor-Joining algorithm
+    def runNeighborJoining(self, distMatrix, n):
+        # Convert the distance matrix to a NumPy array for efficient computations
+        D = np.array(distMatrix, dtype=float)
+        # Initialize a list to keep track of clusters
+        clusters = [i for i in range(n)]
+        # Initialize an adjacency list to store the edges of the phylogenetic tree
+        adjacencies = [[] for i in range(n)]
+
+        # Check if there are fewer than or equal to 1 taxa
+        if len(D) <= 1:
+            return adjacencies
+
+        # Main loop of the Neighbor-Joining algorithm
+        while True:
+            # Check if there are only 2 taxa remaining to join
+            if n == 2:
+                # Connect the last two taxa with their distance as the branch length
+                adjacencies[len(adjacencies) - 1].append((len(adjacencies) - 2, D[0][1]))
+                adjacencies[len(adjacencies) - 2].append((len(adjacencies) - 1, D[0][1]))
+                break
+
+            # Calculate the total genetic distance for each taxon
+            totalDistances = np.sum(D, axis=0)
+
+            # Initialize a modified distance matrix
+            D1 = (n - 2) * D
+            D1 = D1 - totalDistances
+            D1 = D1 - totalDistances.reshape((n, 1))
+            np.fill_diagonal(D1, 0.)
+
+            # Find the minimum entry in the modified distance matrix
+            minIndex = np.argmin(D1)
+            i = minIndex // n
+            j = minIndex % n
+
+            # Calculate delta and branch lengths for the new cluster
+            delta = (totalDistances[i] - totalDistances[j]) / (n - 2)
+            li = (D[i, j] + delta) / 2
+            lj = (D[i, j] - delta) / 2
+
+            # Calculate the distances for the new cluster
+            newDistances = (D[i, :] + D[j, :] - D[i, j]) / 2
+
+            # Expand and update the distance matrix
+            D = np.insert(D, n, newDistances, axis=0)
+            newDistances = np.insert(newDistances, n, 0., axis=0)
+            D = np.insert(D, n, newDistances, axis=1)
+            D = np.delete(D, [i, j], 0)
+            D = np.delete(D, [i, j], 1)
+
+            # Add the new cluster to the adjacency list
+            m = len(adjacencies)
+            adjacencies.append([])
+            adjacencies[m].append((clusters[i], li))
+            adjacencies[clusters[i]].append((m, li))
+            adjacencies[m].append((clusters[j], lj))
+            adjacencies[clusters[j]].append((m, lj))
+
+            # Update the cluster list by removing the joined clusters
+            if i < j:
+                del clusters[j]
+                del clusters[i]
+            else:
+                del clusters[i]
+                del clusters[j]
+
+            # Add the new cluster to the cluster list
+            clusters.append(m)
+
+            # Decrement the number of taxa
+            n -= 1
+
+        # Return the adjacency list representing the phylogenetic tree
+        return adjacencies
+
+# Entry point of the program
+if _name_ == "_main_":
+    # Create an instance of the NeighborJoining class and read input from the command line
+    n, distMatrix = NeighborJoining(0, []).readFromCommandLine()
+    # Construct the phylogenetic tree and print it
+    NeighborJoining(n, distMatrix)
