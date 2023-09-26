@@ -1,1 +1,89 @@
+from Bio import Phylo
 
+def hamming_distance(s1, s2):
+    return sum(c1 != c2 for c1, c2 in zip(s1, s2))
+
+class TreeNode:
+    def _init_(self, name):
+        self.name = name
+        self.clades = []
+
+    def is_terminal(self):
+        return len(self.clades) == 0
+
+def small_parsimony(tree, leaf_labels):
+    def dfs(node):
+        if node.is_terminal():
+            return leaf_labels[node.name], 0
+
+        left_child, right_child = node.clades
+        left_label, left_score = dfs(left_child)
+        right_label, right_score = dfs(right_child)
+
+        internal_label = ""
+        score = left_score + right_score
+
+        for i in range(len(left_label)):
+            min_distance = float('inf')
+            best_char = ''
+
+            for char in 'ACGT':
+                distance = hamming_distance(left_label, char + right_label)
+                if distance < min_distance:
+                    min_distance = distance
+                    best_char = char
+
+            internal_label += best_char
+            score += min_distance
+
+        return internal_label, score
+
+    root = tree.root
+    internal_node_labels, parsimony_score = dfs(root)
+
+    return {root.name: internal_node_labels}
+
+def unrooted_small_parsimony(tree, leaf_labels):
+    nodes = tree.get_terminals()
+    min_parsimony_score = float('inf')
+    best_internal_labels = None
+
+    for node in nodes:
+        tree.root_with_outgroup(node)
+        internal_node_labels = small_parsimony(tree, leaf_labels)
+        tree.root_at_midpoint()
+        parsimony_score = sum(internal_node_labels.values())
+
+        if parsimony_score < min_parsimony_score:
+            min_parsimony_score = parsimony_score
+            best_internal_labels = internal_node_labels
+
+    return best_internal_labels
+
+#These input are from rosalind
+n = 4
+tree_data = [
+    "TCGGCCAA->4",
+    "4->TCGGCCAA",
+    "CCTGGCTG->4",
+    "4->CCTGGCTG",
+    "CACAGGAT->5",
+    "5->CACAGGAT",
+    "TGAGTACC->5",
+    "5->TGAGTACC",
+    "4->5",
+    "5->4"
+]
+
+leaf_labels = {}
+for line in tree_data:
+    parts = line.split("->")
+    if len(parts) == 2:
+        leaf_labels[parts[1]] = parts[0]
+
+tree = Phylo.read(tree_data, "newick")
+
+internal_node_labels = unrooted_small_parsimony(tree, leaf_labels)
+
+for node, label in internal_node_labels.items():
+    print(f"{node}: {label}")
