@@ -1,1 +1,65 @@
+def Limb(D, j):
+    n = len(D)
+    limb_length = float('inf')
 
+    for i in range(n):
+        if i != j:
+            for k in range(n):
+                if k != j and i != k:
+                    length = (D[i][j] + D[j][k] - D[i][k]) / 2
+                    if length < limb_length:
+                        limb_length = length
+
+    return limb_length
+
+def AdditivePhylogeny(D, n):
+    if n == 2:
+        return [(0, 1, D[0][1])]
+
+    limbLength = Limb(D, n - 1)  # Calculate limb length for the last node.
+
+    print(limbLength)
+    
+    for j in range(n):
+        D[j][n - 1] -= limbLength
+        D[n - 1][j] = D[j][n - 1]
+
+    for i in range(n):
+        for k in range(n):
+            if i != k and D[i][k] == D[i][n - 1] + D[n - 1][k]:
+                x = D[i][n - 1]
+                break
+
+    print(D)
+                
+    print((i,n,k,x))
+                
+    for i in range(n):
+        D[i].pop(n-1)
+    D.pop(n-1)
+
+    print(D)
+    
+    T = AdditivePhylogeny(D, n - 1)
+
+    v = -1
+    for node in T:
+        if node[0] == n - 1:
+            v = node[1]
+            limbLength = node[2]
+            break
+
+    new_node = (n - 1, v, x - limbLength)
+    T.append(new_node)
+
+    return T
+
+n = 4  # Change this to your desired value
+D = [[0, 13, 21, 22], [13, 0, 12, 13], [21, 12, 0, 13], [22, 13, 13, 0]]  # Change this to your distance matrix
+
+# Run the algorithm
+tree = AdditivePhylogeny(D, n)
+
+# Format the output
+for edge in tree:
+    print(f"{edge[0]} -> {edge[1]} : {edge[2]}")
